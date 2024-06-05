@@ -3,7 +3,7 @@ import time
 import psycopg2
 
 
-def find_index(nb_camera=2):
+def find_index(nb_camera=3):
 	index = []
 	index_test = 0
 	while len(index) < nb_camera:
