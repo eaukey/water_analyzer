@@ -1,6 +1,7 @@
 import cv2 
 import time
 import psycopg2
+from datetime import datetime
 
 
 def find_index(nb_camera=2):
@@ -35,9 +36,9 @@ def get_connection():
 	return conn
 	
 	
-def send_picture(conn, picture):
+def send_picture(conn, datetime, picture):
 	cursor = conn.cursor()
-	query = "INSERT INTO photos (photo) VALUES (%s)"
+	query = "INSERT INTO photos (date_time, photo) VALUES (%s, %s)"
 	
 	picture = (picture,)
 	cursor.execute(query, picture)
@@ -53,7 +54,8 @@ while state == False:
         ret, photo = take_picture(index)
         photo = convert_image_to_binary(photo)
         conn = get_connection()
-        send_picture(conn, photo)
+	time = datetime.now()
+        send_picture(conn, time, photo)
         time.sleep(2)
         print('one picture taken')
 
