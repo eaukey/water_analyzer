@@ -52,10 +52,10 @@ def capture_image(index):
 
 def get_connection():
     conn = psycopg2.connect(
-        dbname="EaukeyCloudSQLv1",
-        user="romain",
-        password="Lzl?h<P@zxle6xuL",
-        host="35.195.185.218"
+        dbname=os.getenv('DBNAME'),
+        user=os.getenv('USER'),
+        password=os.getenv('PASSWORD'),
+        host=os.getenv('HOST')
     )
     return conn
 
