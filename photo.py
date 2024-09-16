@@ -5,13 +5,27 @@ import io
 from datetime import datetime
 import psycopg2
 import time
+import RPi.GPIO as GPIO
 
 # Nom du bucket Google Cloud Storage
 bucket_name = 'eaukey-v1.appspot.com'
 
+relais_pin = 4
+
+# Configurer la broche en sortie
+GPIO.setup(relais_pin, GPIO.OUT)
+
 # Configuration du client Google Cloud Storage
 def get_gcs_client():
     return storage.Client()
+
+def activer_contacteur():
+    GPIO.output(relais_pin, GPIO.HIGH)  # Activer le relais (fermer le circuit)
+    print("Contacteur activé")
+    
+def desactiver_contacteur():
+    GPIO.output(relais_pin, GPIO.LOW)  # Désactiver le relais (ouvrir le circuit)
+    print("Contacteur désactivé")
 
 # Fonction pour uploader une image vers Google Cloud Storage
 def upload_image_to_gcs(bucket_name, image_data, destination_blob_name):
@@ -75,6 +89,8 @@ indexs = find_index()
 state = False
 
 while state == False:
+    activer_contacteur()
+    time.sleep(30)
     for index in indexs:
         image_data = capture_image(index)
         destination_blob_name = f'captured_image_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
@@ -85,5 +101,5 @@ while state == False:
         send_url(conn, image_url, timestamp, numero_automate)
         time.sleep(2) 
         print('one picture taken')
-                
-    time.sleep(20)
+    desactiver_contacteur()
+    time.sleep(270)
