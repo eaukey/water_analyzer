@@ -12,6 +12,8 @@ bucket_name = 'eaukey-v1.appspot.com'
 
 relais_pin = 4
 
+GPIO.setmode(GPIO.BCM)
+
 # Configurer la broche en sortie
 GPIO.setup(relais_pin, GPIO.OUT)
 
