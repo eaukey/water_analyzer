@@ -91,7 +91,7 @@ indexs = find_index()
 state = False
 
 while state == False:
-    activer_contacteur()
+    desactiver_contacteur()
     time.sleep(30)
     for index in indexs:
         image_data = capture_image(index)
@@ -103,5 +103,5 @@ while state == False:
         send_url(conn, image_url, timestamp, numero_automate)
         time.sleep(2) 
         print('one picture taken')
-    desactiver_contacteur()
+    activer_contacteur()
     time.sleep(270)
