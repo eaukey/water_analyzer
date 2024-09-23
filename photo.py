@@ -37,7 +37,7 @@ def upload_image_to_gcs(bucket_name, image_data, destination_blob_name):
     blob.upload_from_file(image_data, content_type='image/jpeg')
     return blob.public_url
 
-def find_index(nb_camera=2):
+def find_index(nb_camera=3):
     index = []
     index_test = 0
     while len(index) < nb_camera:
