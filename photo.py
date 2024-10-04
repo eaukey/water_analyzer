@@ -18,8 +18,8 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setup(relais_pin, GPIO.OUT)
 
 # Configuration du client Google Cloud Storage
-def get_gcs_client():
-    return storage.Client()
+def get_gcs_client(path='/home/eaukey/credentials.json'):
+    return storage.Client.from_service_account_json(path)
 
 def activer_contacteur():
     GPIO.output(relais_pin, GPIO.HIGH)  # Activer le relais (fermer le circuit)
