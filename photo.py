@@ -99,7 +99,7 @@ while state == False:
         image_url = upload_image_to_gcs(bucket_name, image_data, destination_blob_name)
         conn = get_connection()
         timestamp = datetime.now() 
-        numero_automate = os.getenv('NUMERO_AUTOMATE')
+        numero_automate = int(os.getenv('NUMERO_AUTOMATE'))
         send_url(conn, image_url, timestamp, numero_automate)
         time.sleep(2) 
         print('one picture taken')
