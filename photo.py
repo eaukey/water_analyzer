@@ -11,7 +11,7 @@ VENDOR_ID = 0x1234  # Remplacez par le Vendor ID de votre pompe
 PRODUCT_ID = 0x5678  # Remplacez par le Product ID de votre pompe
 
 # Google Cloud Storage Configuration
-BUCKET_NAME = "your-bucket-name"
+BUCKET_NAME = "eaukey-v1.appspot.com"
 
 # Trouver le périphérique USB
 def get_usb_device():
