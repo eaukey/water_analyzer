@@ -29,7 +29,7 @@ def upload_image_to_gcs(bucket_name, image_data, destination_blob_name):
     return blob.public_url
 
 # Détecter les indices des caméras disponibles
-def find_index(nb_camera=3):
+def find_index(nb_camera=1):
     index = []
     index_test = 0
     while len(index) < nb_camera:
