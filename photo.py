@@ -15,13 +15,10 @@ BUCKET_NAME = "eaukey-v1.appspot.com"
 
 # Trouver le périphérique USB
 def get_usb_device():
-    try:
-        device = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
-        if device is None:
-            raise ValueError("Périphérique USB non trouvé")
-        device.set_configuration()
-    except:
-        print('erreur de detection de la pompe')
+    device = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
+    if device is None:
+        raise ValueError("Périphérique USB non trouvé")
+    device.set_configuration()
     return device
 
 # Activer et désactiver la pompe USB
@@ -65,7 +62,7 @@ def envoyer_photo(file_name):
 def main():
     try:
         # Initialiser le périphérique USB
-        device = get_usb_device()
+        #device = get_usb_device()
 
         # Activer la pompe
         activer_pompe(device)
