@@ -65,14 +65,14 @@ def main():
         #device = get_usb_device()
 
         # Activer la pompe
-        activer_pompe(device)
+        activer_pompe()
         time.sleep(2)  # Attendre 2 secondes que la pompe fonctionne
 
         # Prendre une photo
         file_name = prendre_photo()
 
         # Désactiver la pompe
-        desactiver_pompe(device)
+        desactiver_pompe()
 
         # Envoyer la photo sur le cloud
         envoyer_photo(file_name)
