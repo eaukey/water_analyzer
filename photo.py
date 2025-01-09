@@ -1,107 +1,92 @@
 import os
+import usb.core
+import usb.util
+import time
+from datetime import datetime
 import cv2
 from google.cloud import storage
-import io
-from datetime import datetime
-import psycopg2
-import time
-import RPi.GPIO as GPIO
 
-# Nom du bucket Google Cloud Storage
-bucket_name = 'eaukey-v1.appspot.com'
+# USB Pump Control Configuration
+VENDOR_ID = 0x1234  # Remplacez par le Vendor ID de votre pompe
+PRODUCT_ID = 0x5678  # Remplacez par le Product ID de votre pompe
 
-relais_pin = 4
+# Google Cloud Storage Configuration
+BUCKET_NAME = "your-bucket-name"
 
-GPIO.setmode(GPIO.BCM)
+# Trouver le périphérique USB
+def get_usb_device():
+    device = usb.core.find(idVendor=VENDOR_ID, idProduct=PRODUCT_ID)
+    if device is None:
+        raise ValueError("Périphérique USB non trouvé")
+    device.set_configuration()
+    return device
 
-# Configurer la broche en sortie
-GPIO.setup(relais_pin, GPIO.OUT)
-
-# Configuration du client Google Cloud Storage
-def get_gcs_client(path='/home/eaukey/credentials.json'):
-    return storage.Client.from_service_account_json(path)
-
-def activer_contacteur():
-    GPIO.output(relais_pin, GPIO.HIGH)  # Activer le relais (fermer le circuit)
-    print("Contacteur activé")
-    
-def desactiver_contacteur():
-    GPIO.output(relais_pin, GPIO.LOW)  # Désactiver le relais (ouvrir le circuit)
-    print("Contacteur désactivé")
-
-# Fonction pour uploader une image vers Google Cloud Storage
-def upload_image_to_gcs(bucket_name, image_data, destination_blob_name):
-    client = get_gcs_client()
-    bucket = client.bucket(bucket_name)
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_file(image_data, content_type='image/jpeg')
-    return blob.public_url
-
-def find_index(nb_camera=3):
-    index = []
-    index_test = 0
-    while len(index) < nb_camera:
-        cap = cv2.VideoCapture(index_test)
-        if cap.isOpened():
-            index.append(index_test)
-            cap.release()
-        index_test = index_test + 1
-        if index_test > 10:
-            break
-    return index 
-
-# Capture d'image avec OpenCV
-def capture_image(index):
-    cap = cv2.VideoCapture(index)
-    ret, frame = cap.read()
-    cap.release()
-    if not ret:
-        raise Exception("Failed to capture image")
-    
-    
-    is_success, buffer = cv2.imencode(".jpg", frame)
-    if not is_success:
-        raise Exception("Failed to encode image")
-    
-    image_data = io.BytesIO(buffer)
-    return image_data
-
-def get_connection():
-    conn = psycopg2.connect(
-        dbname=os.getenv('DBNAME'),
-        user=os.getenv('USER'),
-        password=os.getenv('PASSWORD'),
-        host=os.getenv('HOST')
-    )
-    return conn
-
-def send_url(conn, url, timestamp, numero_automate):
+# Activer et désactiver la pompe USB
+def activer_pompe(device):
     try:
-        cursor = conn.cursor()
-        query = "INSERT INTO urls_images (url, timestamp, numero_automate) VALUES (%s, %s, %s)"
-        cursor.execute(query, (url, timestamp, numero_automate))
-        conn.commit()
+        device.write(1, b'\x01')  # Exemple : Activer la pompe
+        print("Pompe activée")
     except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        cursor.close()
+        print(f"Erreur lors de l'activation de la pompe : {e}")
 
-indexs = find_index()
+def desactiver_pompe(device):
+    try:
+        device.write(1, b'\x00')  # Exemple : Désactiver la pompe
+        print("Pompe désactivée")
+    except Exception as e:
+        print(f"Erreur lors de la désactivation de la pompe : {e}")
 
-state = False
+# Prendre une photo
+def prendre_photo():
+    camera = cv2.VideoCapture(0)  # Utilise la première caméra connectée
+    if not camera.isOpened():
+        raise ValueError("Impossible d'accéder à la caméra")
 
-while state == False:
-    desactiver_contacteur()
-    time.sleep(30)
-    for index in indexs:
-        image_data = capture_image(index)
-        destination_blob_name = f'captured_image_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
-        image_url = upload_image_to_gcs(bucket_name, image_data, destination_blob_name)
-        conn = get_connection()
-        timestamp = datetime.now() 
-        numero_automate = int(os.getenv('NUMERO_AUTOMATE'))
-        send_url(conn, image_url, timestamp, numero_automate)
-        time.sleep(2) 
-        print('one picture taken')
-    activer_contacteur()
-    time.sleep(270)
+    ret, frame = camera.read()
+    if not ret:
+        raise ValueError("Échec de la capture d'image")
+
+    # Nom du fichier basé sur l'heure actuelle
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    file_name = f"photo_{timestamp}.jpg"
+    cv2.imwrite(file_name, frame)
+    camera.release()
+    print(f"Photo capturée : {file_name}")
+    return file_name
+
+# Envoyer une photo sur Google Cloud Storage
+def envoyer_photo(file_name):
+    client = storage.Client()
+    bucket = client.bucket(BUCKET_NAME)
+    blob = bucket.blob(file_name)
+
+    blob.upload_from_filename(file_name)
+    print(f"Photo {file_name} envoyée à {BUCKET_NAME}")
+
+    # Supprimer le fichier local après l'envoi
+    os.remove(file_name)
+
+# Programme principal
+def main():
+    try:
+        # Initialiser le périphérique USB
+        device = get_usb_device()
+
+        # Activer la pompe
+        activer_pompe(device)
+        time.sleep(2)  # Attendre 2 secondes que la pompe fonctionne
+
+        # Prendre une photo
+        file_name = prendre_photo()
+
+        # Désactiver la pompe
+        desactiver_pompe(device)
+
+        # Envoyer la photo sur le cloud
+        envoyer_photo(file_name)
+
+    except Exception as e:
+        print(f"Erreur : {e}")
+
+if __name__ == "__main__":
+    main()
