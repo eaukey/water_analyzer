@@ -17,7 +17,7 @@ def desactiver_contacteur():
     print("Contacteur désactivé (USB éteint)")
 
 # Configuration du client Google Cloud Storage
-def get_gcs_client(path='credentials.json'):
+def get_gcs_client(path=None):
     return storage.Client.from_service_account_json(path)
 
 # Fonction pour uploader une image vers Google Cloud Storage
