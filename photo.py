@@ -22,10 +22,10 @@ def get_usb_device():
     return device
 
 # Activer et désactiver la pompe USB
-def activer_pompe(device):
+def activer_pompe():
     print("activation de la pompe")
 
-def desactiver_pompe(device):
+def desactiver_pompe():
     print("pompe desactivé")
 
 # Prendre une photo
