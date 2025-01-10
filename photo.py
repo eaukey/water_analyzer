@@ -62,7 +62,7 @@ def get_connection():
     conn = psycopg2.connect(
         dbname=os.getenv('DBNAME'),
         user=os.getenv('USER'),
-        password=os.getenv('PASSWORD'),
+        password=os.getenv('PASSWORD').strip('"',
         host=os.getenv('HOST')
     )
     return conn
