@@ -5,9 +5,16 @@ import io
 from datetime import datetime
 import psycopg2
 import time
+import numpy as np
+from tensorflow.keras.models import load_model
+from PIL import Image
 
 # Nom du bucket Google Cloud Storage
 bucket_name = 'eaukey-v1.appspot.com'
+
+# Charger le modèle de classification
+model_path = 'photo_classifier.h5'
+model = load_model(model_path)
 
 # Simulation de contrôle du relais USB (remplace GPIO)
 def activer_contacteur():
@@ -42,6 +49,13 @@ def find_index(nb_camera=1):
             break
     return index 
 
+# Prétraitement de l'image pour le modèle
+def preprocess_image(image_data, target_size=(224, 224)):
+    image = Image.open(image_data).convert("RGB")
+    image_resized = image.resize(target_size)
+    image_array = np.array(image_resized) / 255.0  # Normalisation
+    return np.expand_dims(image_array, axis=0)  # Ajouter une dimension batch
+
 # Capture d'image avec OpenCV
 def capture_image(index):
     cap = cv2.VideoCapture(index)
@@ -68,11 +82,14 @@ def get_connection():
     return conn
 
 # Envoi des métadonnées à la base de données
-def send_url(conn, url, timestamp, numero_automate):
+def send_url(conn, url, timestamp, numero_automate, predicted_class):
     try:
         cursor = conn.cursor()
-        query = "INSERT INTO urls_images (url, timestamp, numero_automate) VALUES (%s, %s, %s)"
-        cursor.execute(query, (url, timestamp, numero_automate))
+        query = """
+            INSERT INTO urls_images (url, timestamp, numero_automate, predicted_class) 
+            VALUES (%s, %s, %s, %s)
+        """
+        cursor.execute(query, (url, timestamp, numero_automate, predicted_class))
         conn.commit()
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -91,18 +108,26 @@ while not state:
     time.sleep(30)
     for index in indexs:
         try:
+            # Capture de l'image
             image_data = capture_image(index)
+            # Prétraitement de l'image
+            processed_image = preprocess_image(image_data)
+            # Prédiction avec le modèle
+            predicted_class = np.argmax(model.predict(processed_image), axis=1)[0]
+
+            # Téléchargement de l'image vers GCS
             destination_blob_name = f'captured_image_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
             image_url = upload_image_to_gcs(bucket_name, image_data, destination_blob_name)
 
+            # Envoi des métadonnées à la base de données
             conn = get_connection()
             timestamp = datetime.now()
             numero_automate = int(os.getenv('NUMERO_AUTOMATE'))
-            send_url(conn, image_url, timestamp, numero_automate)
+            send_url(conn, image_url, timestamp, numero_automate, int(predicted_class))
             conn.close()
 
             time.sleep(2)
-            print('One picture taken and uploaded.')
+            print('One picture taken, classified, and uploaded.')
         except Exception as e:
             print(f"Error during image processing: {e}")
 
