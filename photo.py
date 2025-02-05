@@ -8,6 +8,7 @@ import time
 import numpy as np
 from tensorflow.keras.models import load_model
 from PIL import Image
+import serial  # Bibliothèque pour communiquer avec le port série
 
 # Nom du bucket Google Cloud Storage
 bucket_name = 'eaukey-v1.appspot.com'
@@ -16,12 +17,28 @@ bucket_name = 'eaukey-v1.appspot.com'
 model_path = 'photo_classifier.h5'
 model = load_model(model_path)
 
+# Configuration du port série pour le relais USB
+port = 'COM6'  # Remplacez par le port utilisé par votre contacteur
+baudrate = 9600
+
 # Simulation de contrôle du relais USB (remplace GPIO)
 def activer_contacteur():
-    print("Contacteur activé (USB allumé)")
+    """Active le contacteur via USB"""
+    try:
+        with serial.Serial(port, baudrate, timeout=1) as ser:
+            ser.write(bytes([0xA0, 0x01, 0x01, 0xA2]))  # Commande pour activer
+            print("Contacteur activé (USB allumé)")
+    except Exception as e:
+        print(f"Erreur lors de l'activation du contacteur : {e}")
 
 def desactiver_contacteur():
-    print("Contacteur désactivé (USB éteint)")
+    """Désactive le contacteur via USB"""
+    try:
+        with serial.Serial(port, baudrate, timeout=1) as ser:
+            ser.write(bytes([0xA0, 0x01, 0x00, 0xA1]))  # Commande pour désactiver
+            print("Contacteur désactivé (USB éteint)")
+    except Exception as e:
+        print(f"Erreur lors de la désactivation du contacteur : {e}")
 
 # Configuration du client Google Cloud Storage
 def get_gcs_client(path='C:\\Users\\eauke\\eaukey\\credentials.json'):
@@ -104,32 +121,41 @@ state = False
 
 # Boucle infinie pour capturer des images et gérer les contacteurs
 while not state:
-    desactiver_contacteur()
-    time.sleep(30)
-    for index in indexs:
-        try:
-            # Capture de l'image
-            image_data = capture_image(index)
-            # Prétraitement de l'image
-            processed_image = preprocess_image(image_data)
-            # Prédiction avec le modèle
-            predicted_class = np.argmax(model.predict(processed_image), axis=1)[0]
+    try:
+        desactiver_contacteur()  # Désactive toujours le contacteur au début de la boucle
+        time.sleep(30)
+        for index in indexs:
+            try:
+                # Capture de l'image
+                image_data = capture_image(index)
+                # Prétraitement de l'image
+                processed_image = preprocess_image(image_data)
+                # Prédiction avec le modèle
+                predicted_class = np.argmax(model.predict(processed_image), axis=1)[0]
 
-            # Téléchargement de l'image vers GCS
-            destination_blob_name = f'captured_image_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
-            image_url = upload_image_to_gcs(bucket_name, image_data, destination_blob_name)
+                # Téléchargement de l'image vers GCS
+                destination_blob_name = f'captured_image_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
+                image_url = upload_image_to_gcs(bucket_name, image_data, destination_blob_name)
 
-            # Envoi des métadonnées à la base de données
-            conn = get_connection()
-            timestamp = datetime.now()
-            numero_automate = int(os.getenv('NUMERO_AUTOMATE'))
-            send_url(conn, image_url, timestamp, numero_automate, int(predicted_class))
-            conn.close()
+                # Envoi des métadonnées à la base de données
+                conn = get_connection()
+                timestamp = datetime.now()
+                numero_automate = int(os.getenv('NUMERO_AUTOMATE'))
+                send_url(conn, image_url, timestamp, numero_automate, int(predicted_class))
+                conn.close()
 
-            time.sleep(2)
-            print('One picture taken, classified, and uploaded.')
-        except Exception as e:
-            print(f"Error during image processing: {e}")
+                time.sleep(2)
+                print('One picture taken, classified, and uploaded.')
+            except Exception as e:
+                print(f"Error during image processing: {e}")
 
-    activer_contacteur()
-    time.sleep(270)
+        # Activer le contacteur après la boucle de capture d'image
+        activer_contacteur()
+        time.sleep(270)
+
+    except Exception as e:
+        print(f"Erreur inattendue dans la boucle principale : {e}")
+
+    finally:
+        # Toujours désactiver le contacteur en fin de cycle, même en cas d'erreur
+        desactiver_contacteur()
